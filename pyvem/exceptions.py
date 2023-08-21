@@ -1,0 +1,2 @@
+class PyVemException(Exception):
+    pass
