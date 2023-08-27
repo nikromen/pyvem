@@ -98,3 +98,6 @@ class Venv(PyVem):
         self.ve_dir.mkdir(parents=True, exist_ok=True)
         venv.create(str(self.ve_dir), with_pip=True)
         return self.cmd(self._get_requirements_install_cmd(dev, False)).retval
+
+    def run(self, args: list[str]) -> int:
+        return self.cmd([str(self.env_path()), "-c"] + args).retval

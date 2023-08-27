@@ -59,3 +59,6 @@ class Pipenv(PyVem):
             self.link_ve_dir(self.env_path().parent.parent)
 
         return retval
+
+    def run(self, args: list[str]) -> int:
+        return self.cmd(["pipenv", "run"] + args).retval

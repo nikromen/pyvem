@@ -92,3 +92,15 @@ class PyVem(ABC):
         Returns:
             retval
         """
+
+    @abstractmethod
+    def run(self, args: list[str]) -> int:
+        """
+        Install new virtual environment to a project you are in.
+
+        Args:
+            args: Arguments to be run in virtual environment
+
+        Returns:
+            retval
+        """

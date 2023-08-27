@@ -3,7 +3,7 @@ import logging
 import click
 
 from pyvem.cli.containers import container
-from pyvem.cli.ve_tools import delete, info, use, install, env_path, update_deps
+from pyvem.cli.ve_tools import delete, info, use, install, env_path, update_deps, run
 from pyvem.constants import SUCCESS
 
 logging.basicConfig()
@@ -25,6 +25,7 @@ entry_point.add_command(use)
 entry_point.add_command(install)
 entry_point.add_command(env_path)
 entry_point.add_command(update_deps)
+entry_point.add_command(run)
 
 
 if __name__ == "__main__":

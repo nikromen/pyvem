@@ -69,3 +69,10 @@ def env_path() -> None:
 def update_deps(dev: bool) -> None:
     """Updates dependencies in virtual environment"""
     exit(venv_instance.update_deps(dev))
+
+
+@click.command("run")
+@click.argument("command", type=str)
+def run(command: str) -> None:
+    """Runs a specified command inside the corresponding virtual environment."""
+    exit(venv_instance.run(command.split()))

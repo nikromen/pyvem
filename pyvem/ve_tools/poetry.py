@@ -62,3 +62,6 @@ class Poetry(PyVem):
             self.link_ve_dir(self.env_path().parent.parent)
 
         return retval
+
+    def run(self, args: list[str]) -> int:
+        return self.cmd(["poetry", "run"] + args).retval
