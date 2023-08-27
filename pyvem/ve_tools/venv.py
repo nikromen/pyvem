@@ -1,16 +1,17 @@
 import os
 import shutil
 import venv
-from os import getcwd, listdir
+from os import getcwd, listdir, get_terminal_size
 from pathlib import Path
 
+from pexpect import spawn
+
 from pyvem.constants import (
-    Shell,
+    ShellEnum,
     REQUIREMENTS_FILE,
     SUCCESS,
     INFO_TEMPLATE,
     VenvEnum,
-    NOT_IMPLEMENTED,
 )
 from pyvem.ve_tools.base import PyVem
 
@@ -18,20 +19,17 @@ from pyvem.ve_tools.base import PyVem
 class Venv(PyVem):
     def __init__(self) -> None:
         super().__init__()
+        _shell_path = os.getenv("SHELL") or "/bin/bash"
+        self.shell_path = Path(_shell_path)
+
         self.shell = self._get_shell()
 
-    @staticmethod
-    def _get_shell() -> Shell:
-        shell_path = os.getenv("SHELL")
-        if shell_path is None:
-            # just try if bash works...
-            return Shell.bash
+    def _get_shell(self) -> ShellEnum:
+        shell = self.shell_path.name
+        if shell not in ShellEnum.list():
+            return ShellEnum.bash
 
-        shell = Path(shell_path).name
-        if shell not in Shell.list():
-            return Shell.bash
-
-        return Shell[shell]
+        return ShellEnum[shell]
 
     def update_deps(self, dev: bool) -> int:
         return self.cmd(self._get_requirements_install_cmd(dev, True)).retval
@@ -58,16 +56,20 @@ class Venv(PyVem):
         )
 
     def use(self) -> int:
-        # activate_suffix = "activate"
-        # if self.shell != Shell.bash:
-        #     activate_suffix += f".{self.shell.value}"
+        activate_suffix = "activate"
+        if self.shell != ShellEnum.bash:
+            activate_suffix += f".{self.shell.value}"
 
-        # activate_script = self.env_path().parent / activate_suffix
+        activate_script = self.env_path().parent / activate_suffix
 
-        # return self.cmd(
-        #     [f"source {str(activate_script)}], use_venv=True, shell=True
-        # ).retval
-        raise NotImplementedError(NOT_IMPLEMENTED)
+        terminal = get_terminal_size()
+        child = spawn(
+            str(self.shell_path), ["-i"], dimensions=(terminal.lines, terminal.columns)
+        )
+        child.send(f"source {str(activate_script)}" + os.linesep)
+        child.interact()
+        child.close()
+        return child.exitstatus
 
     def _get_requirements_install_cmd(self, dev: bool, update: bool) -> list[str]:
         cmd = [str(self.env_path()), "-m"]

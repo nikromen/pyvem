@@ -8,13 +8,19 @@ from yaml import safe_load
 from pyvem.constants import CONFIG_FILE_LOCATIONS, DEFAULT_PATH_TO_VEM_VENV_FOLDER
 
 
-# there will be more stuff to check but if not then drop pydantic dependency
+# TODO: there will be more stuff to check but if not then drop pydantic dependency
 class Schema(BaseModel):
     path_to_venv_folder: str
+    use_podman_engine: bool
 
 
 class Config:
-    def __init__(self, path_to_venv_folder: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        path_to_venv_folder: Optional[Path] = None,
+        use_podman_engine: bool = False,
+    ) -> None:
+        self.use_podman_engine = use_podman_engine
         if path_to_venv_folder:
             self.path_to_venv_folder = path_to_venv_folder.expanduser()
         else:
@@ -37,5 +43,6 @@ class Config:
         with open(cfg_file_path, "r") as vem_cfg:
             config_dict = safe_load(vem_cfg)
 
+        # TODO: Use schema instead of config cls if I'll keep pydantic
         Schema(**config_dict)
         return Config(**config_dict)
