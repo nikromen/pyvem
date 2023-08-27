@@ -62,7 +62,11 @@ class Cmd:
         return captured_output
 
     def _prepare_process(
-        self, arguments: list[str], context: Optional[Path], use_venv: bool
+        self,
+        arguments: list[str],
+        context: Optional[Path],
+        use_venv: bool,
+        **popen_kwargs,
     ) -> Popen:
         if context is not None:
             cmd_context = context
@@ -85,6 +89,7 @@ class Cmd:
             stdout=stdout_or_pipe,
             stderr=stderr_or_pipe,
             cwd=cmd_context,
+            **popen_kwargs,
         )
 
     def run_cmd(
@@ -96,8 +101,9 @@ class Cmd:
         # FIXME: tee output behaves weird with fish shell -> passing it
         # directly to stdout
         use_venv: bool = False,
+        **popen_kwargs,
     ) -> CmdResult:
-        process = self._prepare_process(arguments, context, use_venv)
+        process = self._prepare_process(arguments, context, use_venv, **popen_kwargs)
         stdout, stderr = "", ""
         if not use_venv:
             stdout = self._tee_process_output(process, tee_to_stdout, True).strip()

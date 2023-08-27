@@ -1,9 +1,17 @@
 import os
 import shutil
+import venv
 from os import getcwd, listdir
 from pathlib import Path
 
-from pyvem.constants import Shell, REQUIREMENTS_FILE, SUCCESS, INFO_TEMPLATE, VenvEnum
+from pyvem.constants import (
+    Shell,
+    REQUIREMENTS_FILE,
+    SUCCESS,
+    INFO_TEMPLATE,
+    VenvEnum,
+    NOT_IMPLEMENTED,
+)
 from pyvem.ve_tools.base import PyVem
 
 
@@ -50,22 +58,25 @@ class Venv(PyVem):
         )
 
     def use(self) -> int:
-        activate_suffix = "activate"
-        if self.shell != Shell.bash:
-            activate_suffix += f".{self.shell.value}"
+        # activate_suffix = "activate"
+        # if self.shell != Shell.bash:
+        #     activate_suffix += f".{self.shell.value}"
 
-        activate_script = self.env_path().parent / activate_suffix
+        # activate_script = self.env_path().parent / activate_suffix
 
-        return self.cmd(["source", str(activate_script)], use_venv=True).retval
+        # return self.cmd(
+        #     [f"source {str(activate_script)}], use_venv=True, shell=True
+        # ).retval
+        raise NotImplementedError(NOT_IMPLEMENTED)
 
     def _get_requirements_install_cmd(self, dev: bool, update: bool) -> list[str]:
         cmd = [str(self.env_path()), "-m"]
         if REQUIREMENTS_FILE in listdir(getcwd()):
-            base_pip_cmd = "pip install "
+            base_pip_cmd = ["pip", "install"]
             if update:
-                base_pip_cmd += "--upgrade"
+                base_pip_cmd.append("--upgrade")
 
-            cmd.append(f"{base_pip_cmd} -r {REQUIREMENTS_FILE}")
+            cmd += base_pip_cmd + ["-r", REQUIREMENTS_FILE]
             return cmd
 
         cmd += ["pip", "install"]
@@ -83,15 +94,5 @@ class Venv(PyVem):
 
     def install(self, dev: bool) -> int:
         self.ve_dir.mkdir(parents=True, exist_ok=True)
-
-        commands = [
-            ["python", "-m", "venv", str(self.ve_dir)],
-            self._get_requirements_install_cmd(dev, False),
-        ]
-        for command in commands:
-            print(" ".join(command))
-            retval = self.cmd(command).retval
-            if retval != SUCCESS:
-                return retval
-
-        return SUCCESS
+        venv.create(str(self.ve_dir), with_pip=True)
+        return self.cmd(self._get_requirements_install_cmd(dev, False)).retval
