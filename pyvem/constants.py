@@ -29,14 +29,14 @@ FAILURE = 1
 # enums
 
 
-class Shell(str, Enum):
+class ShellEnum(str, Enum):
     bash = "bash"
     fish = "fish"
     csh = "csh"
 
     @staticmethod
     def list() -> list[str]:
-        return list(map(lambda shell: shell.value, Shell))
+        return list(map(lambda shell: shell.value, ShellEnum))
 
 
 class VenvEnum(str, Enum):

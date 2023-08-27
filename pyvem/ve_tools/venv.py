@@ -1,29 +1,35 @@
 import os
 import shutil
-from os import getcwd, listdir
+import venv
+from os import getcwd, listdir, get_terminal_size
 from pathlib import Path
 
-from pyvem.constants import Shell, REQUIREMENTS_FILE, SUCCESS, INFO_TEMPLATE, VenvEnum
+from pexpect import spawn
+
+from pyvem.constants import (
+    ShellEnum,
+    REQUIREMENTS_FILE,
+    SUCCESS,
+    INFO_TEMPLATE,
+    VenvEnum,
+)
 from pyvem.ve_tools.base import PyVem
 
 
 class Venv(PyVem):
     def __init__(self) -> None:
         super().__init__()
+        _shell_path = os.getenv("SHELL") or "/bin/bash"
+        self.shell_path = Path(_shell_path)
+
         self.shell = self._get_shell()
 
-    @staticmethod
-    def _get_shell() -> Shell:
-        shell_path = os.getenv("SHELL")
-        if shell_path is None:
-            # just try if bash works...
-            return Shell.bash
+    def _get_shell(self) -> ShellEnum:
+        shell = self.shell_path.name
+        if shell not in ShellEnum.list():
+            return ShellEnum.bash
 
-        shell = Path(shell_path).name
-        if shell not in Shell.list():
-            return Shell.bash
-
-        return Shell[shell]
+        return ShellEnum[shell]
 
     def update_deps(self, dev: bool) -> int:
         return self.cmd(self._get_requirements_install_cmd(dev, True)).retval
@@ -51,21 +57,28 @@ class Venv(PyVem):
 
     def use(self) -> int:
         activate_suffix = "activate"
-        if self.shell != Shell.bash:
+        if self.shell != ShellEnum.bash:
             activate_suffix += f".{self.shell.value}"
 
         activate_script = self.env_path().parent / activate_suffix
 
-        return self.cmd(["source", str(activate_script)], use_venv=True).retval
+        terminal = get_terminal_size()
+        child = spawn(
+            str(self.shell_path), ["-i"], dimensions=(terminal.lines, terminal.columns)
+        )
+        child.send(f"source {str(activate_script)}" + os.linesep)
+        child.interact()
+        child.close()
+        return child.exitstatus
 
     def _get_requirements_install_cmd(self, dev: bool, update: bool) -> list[str]:
         cmd = [str(self.env_path()), "-m"]
         if REQUIREMENTS_FILE in listdir(getcwd()):
-            base_pip_cmd = "pip install "
+            base_pip_cmd = ["pip", "install"]
             if update:
-                base_pip_cmd += "--upgrade"
+                base_pip_cmd.append("--upgrade")
 
-            cmd.append(f"{base_pip_cmd} -r {REQUIREMENTS_FILE}")
+            cmd += base_pip_cmd + ["-r", REQUIREMENTS_FILE]
             return cmd
 
         cmd += ["pip", "install"]
@@ -83,15 +96,5 @@ class Venv(PyVem):
 
     def install(self, dev: bool) -> int:
         self.ve_dir.mkdir(parents=True, exist_ok=True)
-
-        commands = [
-            ["python", "-m", "venv", str(self.ve_dir)],
-            self._get_requirements_install_cmd(dev, False),
-        ]
-        for command in commands:
-            print(" ".join(command))
-            retval = self.cmd(command).retval
-            if retval != SUCCESS:
-                return retval
-
-        return SUCCESS
+        venv.create(str(self.ve_dir), with_pip=True)
+        return self.cmd(self._get_requirements_install_cmd(dev, False)).retval
