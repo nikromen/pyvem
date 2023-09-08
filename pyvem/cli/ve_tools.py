@@ -26,25 +26,25 @@ def get_venv_instance() -> Poetry | Pipenv | Venv:
     raise ClickException(NO_KNOWN_VENV)
 
 
-venv_instance = get_venv_instance()
+ins = get_venv_instance
 
 
 @click.command("delete")
 def delete() -> None:
     """Removes virtual environment of the project you are currently in."""
-    exit(venv_instance.delete())
+    exit(ins().delete())
 
 
 @click.command("info")
 def info() -> None:
     """Prints information of the project you are currently in."""
-    print(venv_instance.info())
+    print(ins().info())
 
 
 @click.command("use")
 def use() -> None:
     """Activates the virtual environment of the current project."""
-    exit(venv_instance.use())
+    exit(ins().use())
 
 
 @click.command("install")
@@ -53,13 +53,13 @@ def use() -> None:
 )
 def install(dev: bool) -> None:
     """Creates new virtual environment for current project and installs dependencies."""
-    exit(venv_instance.install(dev))
+    exit(ins().install(dev))
 
 
 @click.command("env-path")
 def env_path() -> None:
     """Prints path to virtual environment."""
-    print(venv_instance.env_path())
+    print(ins().env_path())
 
 
 @click.command("update")
@@ -68,11 +68,11 @@ def env_path() -> None:
 )
 def update_deps(dev: bool) -> None:
     """Updates dependencies in virtual environment"""
-    exit(venv_instance.update_deps(dev))
+    exit(ins().update_deps(dev))
 
 
 @click.command("run")
 @click.argument("command", type=str)
 def run(command: str) -> None:
     """Runs a specified command inside the corresponding virtual environment."""
-    exit(venv_instance.run(command.split()))
+    exit(ins().run(command.split()))
