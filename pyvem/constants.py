@@ -25,6 +25,9 @@ REQUIREMENTS_FILE = "requirements.txt"
 SUCCESS = 0
 FAILURE = 1
 
+PODMAN_URI = "unix:///run/user/{uid}/podman/podman.sock"
+DOCKER_URI = "unix://var/run/docker.sock"
+
 
 # enums
 
@@ -50,3 +53,8 @@ class VenvEnum(str, Enum):
 
 NO_KNOWN_VENV = "No known python virtual environment found in this project."
 NOT_IMPLEMENTED = "This feature has to be yet implemented."
+MANY_IMAGES = (
+    "There are multiple containers associated with this project,"
+    " you need to pick specific image."
+)
+NO_DEPS_FOUND = "Unable to get dependencies for this project from data you provided. Program ended with code: {code}"

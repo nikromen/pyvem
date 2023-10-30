@@ -1,22 +1,22 @@
 import os
 import shutil
 import venv
-from os import getcwd, listdir, get_terminal_size
+from os import get_terminal_size, getcwd, listdir
 from pathlib import Path
 
 from pexpect import spawn
 
 from pyvem.constants import (
-    ShellEnum,
+    INFO_TEMPLATE,
     REQUIREMENTS_FILE,
     SUCCESS,
-    INFO_TEMPLATE,
+    ShellEnum,
     VenvEnum,
 )
-from pyvem.ve_tools.base import PyVem
+from pyvem.ve_tools.base import VirtualEnvironment
 
 
-class Venv(PyVem):
+class Venv(VirtualEnvironment):
     def __init__(self) -> None:
         super().__init__()
         _shell_path = os.getenv("SHELL") or "/bin/bash"

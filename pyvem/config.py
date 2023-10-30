@@ -19,12 +19,18 @@ class Config:
         self,
         path_to_venv_folder: Optional[Path] = None,
         use_podman_engine: bool = False,
+        images: Optional[dict[str, str]] = None,
     ) -> None:
-        self.use_podman_engine = use_podman_engine
+        if images is None:
+            images = {"rpm": "fedora:latest"}
+
         if path_to_venv_folder:
             self.path_to_venv_folder = path_to_venv_folder.expanduser()
         else:
             self.path_to_venv_folder = DEFAULT_PATH_TO_VEM_VENV_FOLDER
+
+        self.use_podman_engine = use_podman_engine
+        self.images = images
 
     @classmethod
     def _get_config_file_path(cls) -> Optional[Path]:

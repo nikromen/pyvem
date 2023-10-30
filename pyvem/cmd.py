@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from io import TextIOWrapper
 from os import getcwd
 from pathlib import Path
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
 from typing import Optional, TextIO
 
 from pyvem.constants import FAILURE, SUCCESS
