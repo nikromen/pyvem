@@ -10,9 +10,10 @@ from click import Context, pass_context
 from pyvem.config import Config
 from pyvem.constants import NOT_IMPLEMENTED
 from pyvem.containers.rpm import RPM
+from pyvem.spells import find_first_occurrence_of_file
 
-image_tag = click.argument(
-    "tag_name",
+repository_name_arg = click.argument(
+    "repository_name",
     type=str,
     required=False,
     default=os.path.basename(getcwd()),
@@ -20,8 +21,8 @@ image_tag = click.argument(
 
 
 def get_container_type() -> Type[RPM]:
-    result = list(Path(getcwd()).rglob("**/*.spec"))
-    if not result:
+    result = find_first_occurrence_of_file(Path(getcwd()), "*.spec")
+    if result is None:
         pass
         # in case of more container instances
         # raise ClickException(NO_KNOWN_VENV)
@@ -37,24 +38,28 @@ def get_recipe_path_as_text() -> Optional[str]:
 
 
 @dataclass
-class Obj:
+class _Obj:
     c_object: Type[RPM]
-    podman: bool
+    config: Config
 
 
 @click.group()
 @click.option(
     "--podman",
     is_flag=True,
-    default=False,
+    default=None,
     help="Use podman as container engine instead of docker",
 )
 @pass_context
 def container(ctx: Context, podman: bool) -> None:
     """Command group that prepare images and containers"""
-    ctx.obj = Obj(
+    config = Config.get_config()
+    if podman:
+        config.use_podman_engine = True
+
+    ctx.obj = _Obj(
         c_object=get_container_type(),
-        podman=podman,
+        config=config,
     )
 
 
@@ -87,25 +92,27 @@ def container(ctx: Context, podman: bool) -> None:
 )
 @click.option(
     "-i",
-    "--image",
+    "--image-name",
     type=str,
     required=False,
-    default=Config.get_config().images["rpm"],
+    default=Config.get_config().images.rpm,
     show_default=True,
     help="Specific image to pull. e.g. fedora:latest",
 )
-@click.argument("tag_name", type=str)
+@repository_name_arg
 @pass_context
 def install(
     ctx: Context,
     dependency: Optional[list[str]],
     package: Optional[str],
     recipe: Optional[str],
-    image: str,
-    tag_name: str,
+    image_name: str,
+    repository_name: str,
 ) -> None:
     """Install new image with dependencies"""
-    ctx.obj.c_object(True, tag_name).install(dependency, package, Path(recipe), image)
+    ctx.obj.c_object(repository_name=repository_name, config=ctx.obj.config).install(
+        dependency, package, Path(recipe), image_name
+    )
 
 
 @container.command("update")
@@ -118,21 +125,21 @@ def install(
     multiple=True,
     help="Specify packages to be updated",
 )
-@image_tag
-def update(ctx: Context, packages: Optional[list[str]], tag_name: str) -> None:
-    """Update the packages in this image"""
+@repository_name_arg
+def update(ctx: Context, packages: Optional[list[str]], repository_name: str) -> None:
+    """Update the packages in this image repository"""
     raise NotImplementedError(NOT_IMPLEMENTED)
 
 
 @container.command("keep-running")
-@image_tag
+@repository_name_arg
 @click.argument(
     "container_name",
     type=str,
     required=False,
     default=None,
 )
-def keep_running(ctx: Context, tag_name: str, container_name: str):
+def keep_running(ctx: Context, repository_name: str, container_name: str):
     """
     Start container with infinitely running command and return its ID to stdout.
     You won't be able to see output from the container tho
@@ -141,10 +148,12 @@ def keep_running(ctx: Context, tag_name: str, container_name: str):
 
 
 @container.command("run")
-@image_tag
+@repository_name_arg
 @click.argument("command", type=str)
-def run(ctx: Context, tag_name: str):
-    """Start container associated with tag and run command in it."""
+def run(ctx: Context, repository_name: str):
+    """
+    Start container associated with given repository name and run command in it.
+    """
     pass
 
 
@@ -165,20 +174,20 @@ def run(ctx: Context, tag_name: str):
     default=os.path.basename(getcwd()),
 )
 def stop(ctx: Context, id_: str, container_name: str):
-    """Stops running container or containers associated with tag name"""
+    """Stops running container or containers associated with repository name"""
     pass
 
 
 @container.command("delete")
-@image_tag
-def remove(ctx: Context, tag_name: str):
-    """Remove the image"""
+@repository_name_arg
+def remove(ctx: Context, repository_name: str):
+    """Remove the image in repository matching the given name."""
     pass
 
 
 @container.command("info")
-@image_tag
-def info(ctx: Context, tag_name: str):
+@repository_name_arg
+def info(ctx: Context, repository_name: str):
     """Prints the running containers based on given"""
     raise NotImplementedError(NOT_IMPLEMENTED)
 
@@ -188,7 +197,7 @@ c_user = click.option(
     "--user",
     default="root",
     show_default=True,
-    help="Enter the container as specific user",
+    help="Enter the container as specific user (root, ...)",
 )
 
 
@@ -221,7 +230,7 @@ def execute(ctx: Context, user: str, container_name: str, command: str):
 
 
 @container.command("images")
-@image_tag
-def images(ctx: Context):
-    """List all image names associated with project according to tag name"""
+@repository_name_arg
+def images(ctx: Context, repository_name: str):
+    """List all image names associated with project according to repository name"""
     pass

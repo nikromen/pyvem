@@ -9,8 +9,9 @@ from docker import DockerClient
 from pexpect import spawn
 from podman import PodmanClient
 
+from pyvem.config import Config
 from pyvem.constants import DOCKER_URI, MANY_IMAGES, PODMAN_URI
-from pyvem.containers.handler import Imaginator
+from pyvem.containers.handler import ContainerHandler
 from pyvem.exceptions import PyVemContainerException
 from pyvem.pyvem import PyVem
 from pyvem.spells import nested_get
@@ -18,11 +19,10 @@ from pyvem.typedefs import Image
 
 
 class LinuxDistro(ABC, PyVem):
-    def __init__(self, podman: bool, tag_name: Optional[str]) -> None:
-        super().__init__()
-
-        if podman:
-            self.config.use_podman_engine = True
+    def __init__(
+        self, repository_name: Optional[str], config: Optional[Config] = None
+    ) -> None:
+        super().__init__(config=config)
 
         if self.config.use_podman_engine:
             uid = self.cmd(["id", "-u"], tee_to_stdout=False).stderr_and_stdout
@@ -30,11 +30,10 @@ class LinuxDistro(ABC, PyVem):
         else:
             self.client = DockerClient(base_url=DOCKER_URI)
 
-        self.tag_name = tag_name
-        if tag_name is not None:
-            self.imaginator = Imaginator(self.project_name, self.client)
-        else:
-            self.imaginator = None
+        self.imaginator = None
+        self.repository_name = repository_name
+        if repository_name is not None:
+            self.imaginator = ContainerHandler(self.repository_name, self.client)
 
     @staticmethod
     @abstractmethod
@@ -42,14 +41,14 @@ class LinuxDistro(ABC, PyVem):
         ...
 
     @staticmethod
-    def _is_in_tags(tag_name: str, image) -> bool:
-        return any(tag_name in tag for tag in image.tags)
+    def _is_in_repository(repository_name: str, image: Image) -> bool:
+        return any(repository_name in repo for repo in image.tags)
 
     @cached_property
-    def _images(self) -> list[Image]:
+    def _repositories(self) -> list[Image]:
         result = []
         for image in self.client.images.list(all=True):
-            if self._is_in_tags(self.project_name, image):
+            if self._is_in_repository(self.project_name, image):
                 result.append(image)
 
         return result
@@ -60,7 +59,6 @@ class LinuxDistro(ABC, PyVem):
         dependencies: Optional[list[str]],
         package: Optional[str],
         recipe: Optional[Path],
-        image: str,
     ) -> int:
         ...
 
@@ -68,10 +66,12 @@ class LinuxDistro(ABC, PyVem):
     def update(self, packages: Optional[list[str]]) -> int:
         ...
 
-    def _try_to_filter_one_from_images(self, tag_name: str) -> Optional[Image]:
+    def _try_to_filter_one_from_repositories(
+        self, repository_name: str
+    ) -> Optional[Image]:
         one = []
-        for image in self._images:
-            if image.tag() == tag_name:
+        for image in self._repositories:
+            if image.tag() == repository_name:
                 one.append(image)
 
         if len(one) == 1:
@@ -80,28 +80,30 @@ class LinuxDistro(ABC, PyVem):
         return None
 
     def _get_image(self, safe: bool = True) -> Optional[Image]:
-        if not self._images:
+        if not self._repositories:
             if safe:
-                raise PyVemContainerException("No containers for this project found")
+                raise PyVemContainerException(
+                    "No image repository for this project found"
+                )
 
             return None
 
-        if len(self._images) == 1:
-            return self._images[0]
+        if len(self._repositories) == 1:
+            return self._repositories[0]
 
-        if self.tag_name is None:
-            one = self._try_to_filter_one_from_images(self.project_name)
+        if self.repository_name is None:
+            one = self._try_to_filter_one_from_repositories(self.project_name)
             if one is None:
                 raise PyVemContainerException(MANY_IMAGES)
             return one
 
-        for image in self._images:
-            if image.name == self.tag_name:
+        for image in self._repositories:
+            if image.name == self.repository_name:
                 return image
 
         if safe:
             raise PyVemContainerException(
-                f"No container found with name {self.tag_name}"
+                f"No container found with name {self.repository_name}"
             )
         return None
 
@@ -137,12 +139,12 @@ class LinuxDistro(ABC, PyVem):
 
         container.remove()
 
-    def images(self) -> list[str]:
+    def repositories(self) -> list[str]:
         result = []
-        for image in self._images:
-            for tag in image.tags:
-                if self.tag_name in tag:
-                    result.append(tag)
+        for image in self._repositories:
+            for repo in image.tags:
+                if self.repository_name in repo:
+                    result.append(repo)
 
         return result
 
@@ -174,13 +176,14 @@ class LinuxDistro(ABC, PyVem):
         for container in self.client.containers.list():
             image_name = nested_get(container.attrs, "Config", "Image")
             image = self.client.images.get(image_name)
-            if self._is_in_tags(self.tag_name, image):
+            if self._is_in_repository(self.repository_name, image):
                 containers.append(container)
 
         if not containers:
-            return f"No running containers for tag {self.tag_name}"
+            return f"No running containers for tag {self.repository_name}"
 
         result = []
         for container in containers:
             result.append(container.id)
+
         return "\n".join(result)

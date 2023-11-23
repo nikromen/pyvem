@@ -4,35 +4,31 @@ from typing import Optional
 
 from pyvem.constants import NO_DEPS_FOUND, SUCCESS
 from pyvem.containers.base import LinuxDistro
-from pyvem.containers.handler import Imaginator
+from pyvem.containers.handler import ContainerHandler
 from pyvem.exceptions import PyVemContainerException
+from pyvem.spells import find_first_occurrence_of_file
 
 
 class RPM(LinuxDistro):
-    def __init__(self, podman: bool, tag_name: Optional[str] = None) -> None:
-        super().__init__(podman, tag_name)
+    def __init__(self, repository_name: Optional[str] = None) -> None:
+        super().__init__(repository_name)
 
     @staticmethod
     def get_recipe_path() -> Optional[Path]:
-        paths = list(Path(getcwd()).rglob("**/*.spec"))
-        if not paths:
-            return None
-
-        return paths[0]
+        return find_first_occurrence_of_file(Path(getcwd()), "*.spec")
 
     @staticmethod
-    def _get_deps_from_spec(spec: Path, imaginator: Imaginator) -> list[str]:
+    def _get_deps_from_spec(spec: Path, imaginator: ContainerHandler) -> list[str]:
         retval, output = imaginator.command(
             ["dnf", "install", "'dnf-command(builddep)'", "-y"],
             commit=False,
-            print_logs=False,
             raise_on_fail=False,
         )
         if retval != SUCCESS:
             raise PyVemContainerException(NO_DEPS_FOUND.format(code=retval))
 
         _, output = imaginator.command(
-            ["dnf", "builddep", spec, "--assumeno"], commit=False, print_logs=False
+            ["dnf", "builddep", spec, "--assumeno"], commit=False
         )
         out_lines = output.split()
         deps_lines = out_lines[
@@ -41,7 +37,7 @@ class RPM(LinuxDistro):
         return list(map(lambda line: line.split()[0], deps_lines))
 
     def _get_deps(
-        self, package: Optional[str], spec: Optional[Path], imaginator: Imaginator
+        self, package: Optional[str], spec: Optional[Path], imaginator: ContainerHandler
     ) -> list[str]:
         if not package:
             if spec is None:
@@ -69,13 +65,14 @@ class RPM(LinuxDistro):
         recipe: Optional[Path],
         image: str,
     ) -> int:
-        imaginator = Imaginator.get_image(image, self.client)
-        imaginator.tag(self.tag_name)
+        self.imaginator.tag(image)
         project_dependencies = dependencies or [] + self._get_deps(
-            package, recipe, imaginator
+            package, recipe, self.imaginator
         )
 
-        retval, _ = imaginator.command(["dnf", "install", project_dependencies, "-y"])
+        retval, _ = self.imaginator.command(
+            ["dnf", "install", project_dependencies, "-y"]
+        )
         return retval
 
     def update(self, packages: Optional[list[str]]) -> int:
@@ -86,3 +83,8 @@ class RPM(LinuxDistro):
 
         retval, _ = self.imaginator.command(cmd)
         return retval
+
+
+RPM(True, "fedora:latest").install(
+    None, None, Path("../../pyvem.spec").resolve(), "sdop"
+)
