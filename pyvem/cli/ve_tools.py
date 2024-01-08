@@ -16,7 +16,7 @@ def get_venv_instance() -> Poetry | Pipenv | Venv:
 
     if (
         "pyproject.toml" in dir_content
-        and "[tool.poetry]" in open("pyproject.toml", "r").read()
+        and "[tool.poetry]" in open("pyproject.toml").read()
     ):
         return Poetry()
 
