@@ -2,24 +2,30 @@ from os import getcwd
 from pathlib import Path
 from typing import Optional
 
+from tqdm import tqdm
+
+from pyvem.config import Config
 from pyvem.constants import NO_DEPS_FOUND, SUCCESS
 from pyvem.containers.base import LinuxDistro
-from pyvem.containers.handler import ContainerHandler
 from pyvem.exceptions import PyVemContainerException
-from pyvem.spells import find_first_occurrence_of_file
+from pyvem.spells import find_first_occurrence_of_file, progress_bar
 
 
 class RPM(LinuxDistro):
-    def __init__(self, repository_name: Optional[str] = None) -> None:
-        super().__init__(repository_name)
+    def __init__(self, repository_name: str, config: Optional[Config] = None) -> None:
+        super().__init__(repository_name, config)
 
     @staticmethod
     def get_recipe_path() -> Optional[Path]:
         return find_first_occurrence_of_file(Path(getcwd()), "*.spec")
 
-    @staticmethod
-    def _get_deps_from_spec(spec: Path, imaginator: ContainerHandler) -> list[str]:
-        retval, output = imaginator.command(
+    def _get_deps_from_spec(self, spec: Path, bar: tqdm) -> list[str]:
+        bar.total = 4
+        bar.refresh()
+        bar.update(1)
+        bar.set_postfix({"Current job": f"Getting dependencies from spec file: {spec.name}"})
+
+        retval, output = self.container_handler.command(
             ["dnf", "install", "'dnf-command(builddep)'", "-y"],
             commit=False,
             raise_on_fail=False,
@@ -27,7 +33,9 @@ class RPM(LinuxDistro):
         if retval != SUCCESS:
             raise PyVemContainerException(NO_DEPS_FOUND.format(code=retval))
 
-        _, output = imaginator.command(
+        bar.update(1)
+
+        _, output = self.container_handler.command(
             ["dnf", "builddep", spec, "--assumeno"], commit=False
         )
         out_lines = output.split()
@@ -37,7 +45,7 @@ class RPM(LinuxDistro):
         return list(map(lambda line: line.split()[0], deps_lines))
 
     def _get_deps(
-        self, package: Optional[str], spec: Optional[Path], imaginator: ContainerHandler
+        self, package: Optional[str], spec: Optional[Path], bar: tqdm
     ) -> list[str]:
         if not package:
             if spec is None:
@@ -45,12 +53,16 @@ class RPM(LinuxDistro):
                     "Please provide some information for installation"
                 )
 
-            return self._get_deps_from_spec(spec, imaginator)
+            return self._get_deps_from_spec(spec, bar)
 
-        retval, output = imaginator.command(
+        bar.total = 3
+        bar.refresh()
+        bar.update(1)
+        bar.set_postfix({"Current job": f"Getting dependencies from package: {package}"})
+
+        retval, output = self.container_handler.command(
             ["dnf", "repoquery", "--requires", "--resolve", "--recursive", package],
             commit=False,
-            print_logs=False,
             raise_on_fail=False,
         )
         if retval != SUCCESS:
@@ -63,16 +75,18 @@ class RPM(LinuxDistro):
         dependencies: Optional[list[str]],
         package: Optional[str],
         recipe: Optional[Path],
-        image: str,
     ) -> int:
-        self.imaginator.tag(image)
-        project_dependencies = dependencies or [] + self._get_deps(
-            package, recipe, self.imaginator
-        )
+        with progress_bar(desc=f"Installing repo {self.repository_name}") as bar:
+            project_dependencies = dependencies or [] + self._get_deps(
+                package, recipe, bar
+            )
 
-        retval, _ = self.imaginator.command(
-            ["dnf", "install", project_dependencies, "-y"]
-        )
+            bar.update(1)
+            bar.set_postfix({"Current job": "Installing dependencies"})
+            retval, _ = self.container_handler.command(
+                ["dnf", "install", " ".join(project_dependencies), "-y"]
+            )
+
         return retval
 
     def update(self, packages: Optional[list[str]]) -> int:
@@ -81,10 +95,5 @@ class RPM(LinuxDistro):
         else:
             cmd = "dnf upgrade -y"
 
-        retval, _ = self.imaginator.command(cmd)
+        retval, _ = self.container_handler.command(cmd)
         return retval
-
-
-RPM(True, "fedora:latest").install(
-    None, None, Path("../../pyvem.spec").resolve(), "sdop"
-)

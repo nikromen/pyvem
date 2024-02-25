@@ -12,28 +12,35 @@ from podman import PodmanClient
 from pyvem.config import Config
 from pyvem.constants import DOCKER_URI, MANY_IMAGES, PODMAN_URI
 from pyvem.containers.handler import ContainerHandler
+from pyvem.cmd import Cmd
 from pyvem.exceptions import PyVemContainerException
 from pyvem.pyvem import PyVem
-from pyvem.spells import nested_get
+from pyvem.spells import nested_get, parse_repository_name
 from pyvem.typedefs import Image
+
+
+def get_container_client(use_podman: bool, cwd: Optional[Path] = None):
+    if not use_podman:
+        return DockerClient(base_url=DOCKER_URI)
+
+    if cwd is None:
+        cmd_cls = Cmd()
+    else:
+        cmd_cls = Cmd(cwd)
+
+    uid = cmd_cls.run_cmd(["id", "-u"], tee_to_stdout=False).stderr_and_stdout
+    return PodmanClient(base_url=PODMAN_URI.format(uid=uid))
 
 
 class LinuxDistro(ABC, PyVem):
     def __init__(
-        self, repository_name: Optional[str], config: Optional[Config] = None
+        self, repository_name: str, config: Optional[Config] = None
     ) -> None:
         super().__init__(config=config)
 
-        if self.config.use_podman_engine:
-            uid = self.cmd(["id", "-u"], tee_to_stdout=False).stderr_and_stdout
-            self.client = PodmanClient(base_url=PODMAN_URI.format(uid=uid))
-        else:
-            self.client = DockerClient(base_url=DOCKER_URI)
-
-        self.imaginator = None
-        self.repository_name = repository_name
-        if repository_name is not None:
-            self.imaginator = ContainerHandler(self.repository_name, self.client)
+        self.client = get_container_client(config.use_podman_engine, self.cwd)
+        self.repository_name, self.tag_name = parse_repository_name(repository_name)
+        self.container_handler = ContainerHandler(repository_name, self.client)
 
     @staticmethod
     @abstractmethod
@@ -149,7 +156,7 @@ class LinuxDistro(ABC, PyVem):
         return result
 
     def run(self, command: list[str]) -> None:
-        self.imaginator.command(command)
+        self.container_handler.command(command)
 
     def enter(self, user: str, container_name: str) -> int:
         if isinstance(self.client, PodmanClient):

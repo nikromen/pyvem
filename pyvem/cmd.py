@@ -57,7 +57,7 @@ class Cmd:
             captured_output += out_line
 
             if tee_to_stdout:
-                print(out_line, file=print_output, end="")
+                print(out_line, file=print_output, end="", flush=True)
 
         return captured_output
 

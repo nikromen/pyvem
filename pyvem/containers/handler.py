@@ -3,13 +3,15 @@ from abc import ABC, abstractmethod
 from docker.errors import ImageNotFound as DockerImageNotFound
 from podman import PodmanClient
 from podman.errors import ImageNotFound as PodmanImageNotFound
+from tqdm import tqdm
 
 from pyvem.constants import PODMAN_URI, SUCCESS
 from pyvem.exceptions import PyVemContainerException
+from pyvem.spells import parse_repository_name
 from pyvem.typedefs import Container, ContainerClient, Image
 
 
-class _State(ABC):
+class State(ABC):
     @property
     def handler(self) -> "ContainerHandler":
         return self._handler
@@ -19,7 +21,7 @@ class _State(ABC):
         self._handler = handler
 
     @abstractmethod
-    def get_image(self, repository_name: str, tag_name: str) -> Image:
+    def _get_image(self, repository_name: str, tag_name: str) -> Image:
         ...
 
     @abstractmethod
@@ -37,7 +39,7 @@ class _State(ABC):
         ...
 
     @staticmethod
-    def _do_command_in_container(
+    def _collect_outputs_from_container(
         container: Container,
         command: list[str],
         print_logs: bool = True,
@@ -48,7 +50,7 @@ class _State(ABC):
             stripped = line.decode().strip()
             stdout_lines.append(stripped)
             if print_logs:
-                print(stripped)
+                tqdm.write(stripped)
 
         retval = container.wait()
         if raise_on_fail and retval != SUCCESS:
@@ -58,7 +60,7 @@ class _State(ABC):
 
         return retval, "\n".join(stdout_lines)
 
-    def _command_in_container_with_commit_allowed(
+    def _collect_outputs_from_container_and_commit(
         self,
         container: Container,
         command: list[str],
@@ -66,7 +68,7 @@ class _State(ABC):
         print_logs: bool = True,
         raise_on_fail: bool = True,
     ) -> tuple[int, str]:
-        retval, output = self._do_command_in_container(
+        retval, output = self._collect_outputs_from_container(
             container, command, print_logs, raise_on_fail
         )
         if commit:
@@ -75,8 +77,8 @@ class _State(ABC):
         return retval, output
 
 
-class RepositoryContainerHandlerState(_State):
-    def get_image(self, repository_name: str, tag_name: str) -> Image:
+class RepositoryContainerHandlerState(State):
+    def _get_image(self, repository_name: str, tag_name: str) -> Image:
         try:
             return self.handler._client.images.get(f"{repository_name}:{tag_name}")
         except (DockerImageNotFound, PodmanImageNotFound) as exc:
@@ -99,7 +101,7 @@ class RepositoryContainerHandlerState(_State):
         )
         container.start()
 
-        retval, output = self._command_in_container_with_commit_allowed(
+        retval, output = self._collect_outputs_from_container_and_commit(
             container=container,
             command=command,
             commit=commit,
@@ -107,13 +109,15 @@ class RepositoryContainerHandlerState(_State):
             raise_on_fail=raise_on_fail,
         )
 
-        container.stop()
+        if container.status == "running":
+            container.stop()
+
         container.remove()
         return retval, output
 
 
-class ContainerHandlerState(_State):
-    def get_image(self, repository_name: str, tag_name: str) -> Image:
+class ContainerHandlerState(State):
+    def _get_image(self, repository_name: str, tag_name: str) -> Image:
         # TODO: they have
         raise PyVemContainerException("Container don't have repo or image")
 
@@ -128,7 +132,8 @@ class ContainerHandlerState(_State):
         raise_on_fail: bool = True,
     ) -> tuple[int, str]:
         container = self.handler._client.containers.get(self.handler._repository_name)
-        retval, output = self._command_in_container_with_commit_allowed(
+        container.exec_run(command)
+        retval, output = self._collect_outputs_from_container_and_commit(
             container=container,
             command=command,
             commit=commit,
@@ -138,8 +143,8 @@ class ContainerHandlerState(_State):
         return retval, output
 
 
-class ImageContainerHandlerState(_State):
-    def get_image(self, repository_name: str, tag_name: str) -> Image:
+class ImageContainerHandlerState(State):
+    def _get_image(self, repository_name: str, tag_name: str) -> Image:
         # in fact image name
         return self.handler._client.images.pull(repository_name, tag_name)
 
@@ -151,9 +156,6 @@ class ImageContainerHandlerState(_State):
         # image as is, switching to the tagged one
         self.handler._repository_name = repository
         self.handler._tag_name = _tag_name
-        # TODO: do I really want to do this under the hood?
-        self.handler.set_state(RepositoryContainerHandlerState())
-        self.handler._image = self.get_image(repository, _tag_name)
 
     def command(
         self,
@@ -170,7 +172,7 @@ class ImageContainerHandlerState(_State):
         )
         container.start()
 
-        retval, output = self._do_command_in_container(
+        retval, output = self._collect_outputs_from_container(
             container=container,
             command=command,
             print_logs=print_logs,
@@ -203,24 +205,16 @@ class ContainerHandler:
         self,
         repository_name: str,
         client: ContainerClient,
-        _state: _State = DEFAULT_STATE,
+        state: State = DEFAULT_STATE,
     ) -> None:
-        self.set_state(_state)
-
-        self._repository_name = repository_name
-        self._tag_name = "latest"
-        if ":" in repository_name:
-            split_repo_name = repository_name.split(":")
-            self._repository_name = split_repo_name[0]
-            self._tag_name = split_repo_name[1]
-
+        self._repository_name, self._tag_name = parse_repository_name(repository_name)
         self._client = client
+        self.set_state(state)
 
-        self._image = self.get_image(self._repository_name, self._tag_name)
-
-    def set_state(self, state: _State) -> None:
+    def set_state(self, state: State) -> None:
         self._state = state
         self._state.handler = self
+        self._image = self._get_image(self._repository_name, self._tag_name)
 
     def command(
         self,
@@ -244,13 +238,16 @@ class ContainerHandler:
         #  directory. It would require some version control logic.
         self._state.tag(repository=repository)
 
-    def get_image(self, repository_name: str, tag_name: str) -> Image:
-        return self._state.get_image(repository_name=repository_name, tag_name=tag_name)
+    def _get_image(self, repository_name: str, tag_name: str) -> Image:
+        return self._state._get_image(repository_name=repository_name, tag_name=tag_name)
 
+    def get_handler_for(self, repository_name: str, tag_name: str) -> "ContainerHandler":
+        state_to_pass = self._state
+        if self._state == IMAGE_STATE:
+            state_to_pass = REPOSITORY_STATE
 
-la = PodmanClient(base_url=PODMAN_URI.format(uid="4203067"))
-i = ContainerHandler("fedora:latest", la, IMAGE_STATE)
-i.tag("sakraprace")
-i.set_state(REPOSITORY_STATE)
-c = i.command(["dnf", "install", "vim", "-y"])
-a = 2
+        return self.__class__(
+            repository_name=f"{repository_name}:{tag_name}",
+            client=self._client,
+            state=state_to_pass,
+        )

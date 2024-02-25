@@ -9,8 +9,10 @@ from click import Context, pass_context
 
 from pyvem.config import Config
 from pyvem.constants import NOT_IMPLEMENTED
+from pyvem.containers.base import get_container_client
+from pyvem.containers.handler import IMAGE_STATE, ContainerHandler
 from pyvem.containers.rpm import RPM
-from pyvem.spells import find_first_occurrence_of_file
+from pyvem.spells import find_first_occurrence_of_file, parse_repository_name
 
 repository_name_arg = click.argument(
     "repository_name",
@@ -105,13 +107,20 @@ def install(
     ctx: Context,
     dependency: Optional[list[str]],
     package: Optional[str],
-    recipe: Optional[str],
+    recipe: str,
     image_name: str,
     repository_name: str,
 ) -> None:
     """Install new image with dependencies"""
+    container_client = get_container_client(ctx.obj.config.use_podman_engine)
+    container_handler = ContainerHandler(repository_name, container_client, IMAGE_STATE)
+    image_name, tag_name = parse_repository_name(image_name)
+    repo_container_handler = container_handler.get_handler_for(image_name, tag_name)
+    repo_name, _ = parse_repository_name(repository_name)
+    repo_container_handler.tag(repo_name)
+
     ctx.obj.c_object(repository_name=repository_name, config=ctx.obj.config).install(
-        dependency, package, Path(recipe), image_name
+        dependency, package, Path(recipe)
     )
 
 

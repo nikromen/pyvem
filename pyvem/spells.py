@@ -4,8 +4,11 @@
 import fnmatch
 import os
 from collections import deque
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
+
+from tqdm import tqdm
 
 
 def nested_get(d: dict[Any, Any], *args) -> Optional[Any]:
@@ -41,3 +44,22 @@ def find_first_occurrence_of_file(
                 queue.append((os.path.join(root, subdir), curr_depth + 1))
 
     return None
+
+
+def parse_repository_name(repository_name: str) -> tuple[str, str]:
+    if ":" in repository_name:
+        split = repository_name.split(":")
+        return split[0], split[1]
+
+    return repository_name, "latest"
+
+
+@contextmanager
+def progress_bar(desc: Optional[str] = None, bar_format: Optional[str] = None, update_tick: int = 0.3, position: int = 1, total: Optional[int] = None) -> tqdm:
+    bar = tqdm(desc=desc, total=total, bar_format=bar_format, position=position, mininterval=update_tick)
+    try:
+        yield bar
+    finally:
+        # last update to get 100%
+        bar.update(1)
+        bar.close()
