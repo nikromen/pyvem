@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from io import TextIOWrapper
 from os import getcwd
 from pathlib import Path
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
 from typing import Optional, TextIO
 
 from pyvem.constants import FAILURE, SUCCESS
@@ -57,7 +57,7 @@ class Cmd:
             captured_output += out_line
 
             if tee_to_stdout:
-                print(out_line, file=print_output, end="")
+                print(out_line, file=print_output, end="", flush=True)
 
         return captured_output
 

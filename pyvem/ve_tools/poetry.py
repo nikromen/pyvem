@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from pyvem.constants import INFO_TEMPLATE, VenvEnum, SUCCESS
+from pyvem.constants import INFO_TEMPLATE, SUCCESS, VenvEnum
 from pyvem.exceptions import PyVemException
-from pyvem.ve_tools.base import PyVem
+from pyvem.ve_tools.base import VirtualEnvironment
 
 
-class Poetry(PyVem):
+class Poetry(VirtualEnvironment):
     def __init__(self) -> None:
         super().__init__()
 

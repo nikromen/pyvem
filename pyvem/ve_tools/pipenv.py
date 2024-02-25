@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
 
-from pyvem.constants import INFO_TEMPLATE, VenvEnum, SUCCESS
-from pyvem.ve_tools.base import PyVem
+from pyvem.constants import INFO_TEMPLATE, SUCCESS, VenvEnum
+from pyvem.ve_tools.base import VirtualEnvironment
 
 
-class Pipenv(PyVem):
+class Pipenv(VirtualEnvironment):
     def __init__(self) -> None:
         super().__init__()
 

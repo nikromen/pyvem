@@ -3,19 +3,15 @@ Abstract class for merging the functionality of all the virtual environment
 tools in `ve_tools/` to one tool.
 """
 from abc import ABC, abstractmethod
-from os import getcwd
 from pathlib import Path
 
-from pyvem.config import Config
-from pyvem.cmd import Cmd
+from pyvem.pyvem import PyVem
 
 
-class PyVem(ABC):
+class VirtualEnvironment(ABC, PyVem):
     def __init__(self) -> None:
-        self.cwd = Path(getcwd())
-        self.cmd = Cmd(self.cwd).run_cmd
-        self.config = Config.get_config()
-        self.project_name = Path(getcwd()).name
+        super().__init__()
+        # TODO: polish naming
         self.ve_dir = self.config.path_to_venv_folder / self.project_name
 
     def ensure_pyvem_ve_dir(self) -> Path:

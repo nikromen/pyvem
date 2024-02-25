@@ -1,4 +1,4 @@
-from os import listdir, getcwd
+from os import getcwd, listdir
 
 import click
 from click import ClickException
