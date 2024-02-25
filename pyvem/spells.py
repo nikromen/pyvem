@@ -55,8 +55,20 @@ def parse_repository_name(repository_name: str) -> tuple[str, str]:
 
 
 @contextmanager
-def progress_bar(desc: Optional[str] = None, bar_format: Optional[str] = None, update_tick: int = 0.3, position: int = 1, total: Optional[int] = None) -> tqdm:
-    bar = tqdm(desc=desc, total=total, bar_format=bar_format, position=position, mininterval=update_tick)
+def progress_bar(
+    desc: Optional[str] = None,
+    bar_format: Optional[str] = None,
+    update_tick: int = 0.3,
+    position: int = 1,
+    total: Optional[int] = None,
+) -> tqdm:
+    bar = tqdm(
+        desc=desc,
+        total=total,
+        bar_format=bar_format,
+        position=position,
+        mininterval=update_tick,
+    )
     try:
         yield bar
     finally:

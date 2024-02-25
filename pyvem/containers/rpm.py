@@ -23,7 +23,9 @@ class RPM(LinuxDistro):
         bar.total = 4
         bar.refresh()
         bar.update(1)
-        bar.set_postfix({"Current job": f"Getting dependencies from spec file: {spec.name}"})
+        bar.set_postfix(
+            {"Current job": f"Getting dependencies from spec file: {spec.name}"}
+        )
 
         retval, output = self.container_handler.command(
             ["dnf", "install", "'dnf-command(builddep)'", "-y"],
@@ -58,7 +60,9 @@ class RPM(LinuxDistro):
         bar.total = 3
         bar.refresh()
         bar.update(1)
-        bar.set_postfix({"Current job": f"Getting dependencies from package: {package}"})
+        bar.set_postfix(
+            {"Current job": f"Getting dependencies from package: {package}"}
+        )
 
         retval, output = self.container_handler.command(
             ["dnf", "repoquery", "--requires", "--resolve", "--recursive", package],

@@ -239,9 +239,13 @@ class ContainerHandler:
         self._state.tag(repository=repository)
 
     def _get_image(self, repository_name: str, tag_name: str) -> Image:
-        return self._state._get_image(repository_name=repository_name, tag_name=tag_name)
+        return self._state._get_image(
+            repository_name=repository_name, tag_name=tag_name
+        )
 
-    def get_handler_for(self, repository_name: str, tag_name: str) -> "ContainerHandler":
+    def get_handler_for(
+        self, repository_name: str, tag_name: str
+    ) -> "ContainerHandler":
         state_to_pass = self._state
         if self._state == IMAGE_STATE:
             state_to_pass = REPOSITORY_STATE

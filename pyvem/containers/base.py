@@ -9,10 +9,10 @@ from docker import DockerClient
 from pexpect import spawn
 from podman import PodmanClient
 
+from pyvem.cmd import Cmd
 from pyvem.config import Config
 from pyvem.constants import DOCKER_URI, MANY_IMAGES, PODMAN_URI
 from pyvem.containers.handler import ContainerHandler
-from pyvem.cmd import Cmd
 from pyvem.exceptions import PyVemContainerException
 from pyvem.pyvem import PyVem
 from pyvem.spells import nested_get, parse_repository_name
@@ -33,9 +33,7 @@ def get_container_client(use_podman: bool, cwd: Optional[Path] = None):
 
 
 class LinuxDistro(ABC, PyVem):
-    def __init__(
-        self, repository_name: str, config: Optional[Config] = None
-    ) -> None:
+    def __init__(self, repository_name: str, config: Optional[Config] = None) -> None:
         super().__init__(config=config)
 
         self.client = get_container_client(config.use_podman_engine, self.cwd)
