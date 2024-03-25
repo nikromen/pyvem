@@ -2,6 +2,7 @@
 Abstract class for merging the functionality of all the virtual environment
 tools in `ve_tools/` to one tool.
 """
+
 from abc import ABC, abstractmethod
 from os import getcwd
 from pathlib import Path

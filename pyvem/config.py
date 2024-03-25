@@ -40,7 +40,7 @@ class Config:
         if cfg_file_path is None:
             return Config()
 
-        with open(cfg_file_path, "r") as vem_cfg:
+        with open(cfg_file_path) as vem_cfg:
             config_dict = safe_load(vem_cfg)
 
         # TODO: Use schema instead of config cls if I'll keep pydantic
