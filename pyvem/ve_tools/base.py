@@ -2,36 +2,30 @@
 Abstract class for merging the functionality of all the virtual environment
 tools in `ve_tools/` to one tool.
 """
+
 from abc import ABC, abstractmethod
-from os import getcwd
 from pathlib import Path
 
-from pyvem.config import Config
-from pyvem.cmd import Cmd
+from pyvem.pyvem import PyVem
 
 
-class PyVem(ABC):
+class VirtualEnvironment(ABC, PyVem):
     def __init__(self) -> None:
-        self.cwd = Path(getcwd())
-        self.cmd = Cmd(self.cwd).run_cmd
-        self.config = Config.get_config()
-        self.project_name = Path(getcwd()).name
-        self.ve_dir = self.config.path_to_venv_folder / self.project_name
+        super().__init__()
+        self.ve_dir = self.pyvem_dir / "ve"
+        if not self.ve_dir.exists():
+            self.ve_dir.mkdir(parents=True, exist_ok=True)
 
-    def ensure_pyvem_ve_dir(self) -> Path:
-        if not self.config.path_to_venv_folder.exists():
-            self.ve_dir.parent.mkdir(parents=True, exist_ok=True)
-
-        return self.ve_dir
+        self.project_dir = self.ve_dir / self.project_name
 
     def unlink_ve_dir(self) -> None:
-        if not self.ve_dir.exists():
+        if not self.project_dir.exists():
             return
 
-        self.ve_dir.unlink(missing_ok=True)
+        self.project_dir.unlink(missing_ok=True)
 
     def link_ve_dir(self, link_folder: Path) -> None:
-        self.ensure_pyvem_ve_dir().symlink_to(link_folder, target_is_directory=True)
+        self.project_dir.symlink_to(link_folder, target_is_directory=True)
 
     @abstractmethod
     def update_deps(self, dev: bool) -> int:
@@ -96,7 +90,7 @@ class PyVem(ABC):
     @abstractmethod
     def run(self, args: list[str]) -> int:
         """
-        Install new virtual environment to a project you are in.
+        Run command in virtual environment.
 
         Args:
             args: Arguments to be run in virtual environment

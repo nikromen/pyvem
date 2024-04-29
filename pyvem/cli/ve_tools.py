@@ -1,9 +1,9 @@
-from os import listdir, getcwd
+from os import getcwd, listdir
 
 import click
-from click import ClickException
 
 from pyvem.constants import NO_KNOWN_VENV
+from pyvem.exceptions import PyVemException
 from pyvem.ve_tools.pipenv import Pipenv
 from pyvem.ve_tools.poetry import Poetry
 from pyvem.ve_tools.venv import Venv
@@ -16,14 +16,14 @@ def get_venv_instance() -> Poetry | Pipenv | Venv:
 
     if (
         "pyproject.toml" in dir_content
-        and "[tool.poetry]" in open("pyproject.toml", "r").read()
+        and "[tool.poetry]" in open("pyproject.toml").read()
     ):
         return Poetry()
 
     if "setup.py" in dir_content or "pyproject.toml" in dir_content:
         return Venv()
 
-    raise ClickException(NO_KNOWN_VENV)
+    raise PyVemException(NO_KNOWN_VENV)
 
 
 ins = get_venv_instance

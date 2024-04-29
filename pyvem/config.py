@@ -2,29 +2,24 @@ from os.path import isfile
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, FilePath
 from yaml import safe_load
 
-from pyvem.constants import CONFIG_FILE_LOCATIONS, DEFAULT_PATH_TO_VEM_VENV_FOLDER
+from pyvem.constants import CONFIG_FILE_LOCATIONS, DEFAULT_PATH_TO_PYVEM_DIR
 
 
-# TODO: there will be more stuff to check but if not then drop pydantic dependency
-class Schema(BaseModel):
-    path_to_venv_folder: str
-    use_podman_engine: bool
+class Images(BaseModel):
+    rpm: str = Field(default="fedora:latest", pattern=r"^[^:]+:[^:]+$")
 
 
-class Config:
-    def __init__(
-        self,
-        path_to_venv_folder: Optional[Path] = None,
-        use_podman_engine: bool = False,
-    ) -> None:
-        self.use_podman_engine = use_podman_engine
-        if path_to_venv_folder:
-            self.path_to_venv_folder = path_to_venv_folder.expanduser()
-        else:
-            self.path_to_venv_folder = DEFAULT_PATH_TO_VEM_VENV_FOLDER
+class Config(BaseModel):
+    path_to_pyvem_dir: FilePath = DEFAULT_PATH_TO_PYVEM_DIR
+    use_podman_engine: bool = False
+    images: Images = Images()
+
+    # config for pydantic
+    class Config:
+        arbitrary_types_allowed = True
 
     @classmethod
     def _get_config_file_path(cls) -> Optional[Path]:
@@ -38,11 +33,9 @@ class Config:
     def get_config(cls) -> "Config":
         cfg_file_path = cls._get_config_file_path()
         if cfg_file_path is None:
-            return Config()
+            return cls()
 
-        with open(cfg_file_path, "r") as vem_cfg:
+        with open(cfg_file_path) as vem_cfg:
             config_dict = safe_load(vem_cfg)
 
-        # TODO: Use schema instead of config cls if I'll keep pydantic
-        Schema(**config_dict)
-        return Config(**config_dict)
+        return cls(**config_dict)
