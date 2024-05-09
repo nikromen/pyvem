@@ -11,7 +11,13 @@ BuildArch:      noarch
 
 BuildRequires:  python3-devel
 BuildRequires:  pyproject-rpm-macros
-BuildRequires:  python3-click
+
+Requires:       python3-click
+Requires:       python3-tqdm
+Requires:       python3-podman
+Requires:       python3-docker
+Requires:       python3-pexpect
+Requires:       python3-pip
 
 
 %description

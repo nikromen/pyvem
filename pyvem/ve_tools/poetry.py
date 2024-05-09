@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from pyvem.constants import INFO_TEMPLATE, VenvEnum, SUCCESS
+from pyvem.constants import INFO_TEMPLATE, SUCCESS, VenvEnum
 from pyvem.exceptions import PyVemException
-from pyvem.ve_tools.base import PyVem
+from pyvem.ve_tools.base import VirtualEnvironment
 
 
-class Poetry(PyVem):
+class Poetry(VirtualEnvironment):
     def __init__(self) -> None:
         super().__init__()
 
@@ -44,7 +44,7 @@ class Poetry(PyVem):
         return INFO_TEMPLATE.format(
             version=py_version,
             name=self.project_name,
-            folder_path=self.ve_dir,
+            folder_path=self.project_dir if self.project_dir.exists() else "NA",
             interpreter_path=str(self.env_path()),
             venv_type=VenvEnum.poetry.value,
         )

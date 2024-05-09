@@ -1,11 +1,12 @@
 import sys
 from pathlib import Path
 
-from pyvem.constants import INFO_TEMPLATE, VenvEnum, SUCCESS
-from pyvem.ve_tools.base import PyVem
+from pyvem.constants import INFO_TEMPLATE, SUCCESS, VenvEnum
+from pyvem.exceptions import PyVemException
+from pyvem.ve_tools.base import VirtualEnvironment
 
 
-class Pipenv(PyVem):
+class Pipenv(VirtualEnvironment):
     def __init__(self) -> None:
         super().__init__()
 
@@ -27,17 +28,27 @@ class Pipenv(PyVem):
             ).stderr_and_stdout.split("\n")[-1]
         )
 
-    def info(self) -> str:
-        py_version = self.cmd(
-            ["pipenv", "run", "python", "-V"],
+    def _get_python_version(self) -> str:
+        return self.cmd(
+            ["pipenv", "run", "python3", "-V"],
             tee_to_stdout=False,
             raise_on_failure=True,
         ).stderr_and_stdout.split("\n")[-1]
 
+    def info(self) -> str:
+        try:
+            py_version = self._get_python_version()
+        except PyVemException as e:
+            if "pipenv --python path/to/python" not in str(e):
+                raise
+
+            self.cmd(["pipenv", "--python", sys.executable], raise_on_failure=True)
+            py_version = self._get_python_version()
+
         return INFO_TEMPLATE.format(
             version=py_version,
             name=self.project_name,
-            folder_path=self.ve_dir,
+            folder_path=self.project_dir if self.project_dir.exists() else "NA",
             interpreter_path=str(self.env_path()),
             venv_type=VenvEnum.pipenv.value,
         )

@@ -1,11 +1,11 @@
 from enum import Enum
 from pathlib import Path
 
-GLOBAL_CFG = Path("/etc/pyvem.cfg")
+GLOBAL_CFG = Path("/etc/pyvem/pyvem.cfg")
 USER_CFG = Path("~/.config/pyvem.cfg").expanduser()
 # order is important! user cfg overrides global cfg
 CONFIG_FILE_LOCATIONS = [USER_CFG, GLOBAL_CFG]
-DEFAULT_PATH_TO_VEM_VENV_FOLDER = Path("~/.local/share/pyvem/venvs").expanduser()
+DEFAULT_PATH_TO_PYVEM_DIR = Path("~/.local/share/pyvem").expanduser()
 
 
 GREEN = "\033[32m"
@@ -25,6 +25,9 @@ REQUIREMENTS_FILE = "requirements.txt"
 SUCCESS = 0
 FAILURE = 1
 
+PODMAN_URI = "unix:///run/user/{uid}/podman/podman.sock"
+DOCKER_URI = "unix://var/run/docker.sock"
+
 
 # enums
 
@@ -43,6 +46,9 @@ class VenvEnum(str, Enum):
     pipenv = "pipenv"
     poetry = "poetry"
     venv = "venv"
+
+
+class LinuxEnvEnum(str, Enum):
     rpm = "RPM"
 
 
@@ -50,3 +56,11 @@ class VenvEnum(str, Enum):
 
 NO_KNOWN_VENV = "No known python virtual environment found in this project."
 NOT_IMPLEMENTED = "This feature has to be yet implemented."
+MANY_IMAGES = (
+    "There are multiple containers associated with this project,"
+    " you need to pick specific image."
+)
+NO_DEPS_FOUND = (
+    "Unable to get dependencies for this project from data you provided."
+    " Program ended with code: {code}"
+)
