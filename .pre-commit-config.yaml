@@ -3,7 +3,7 @@ ci:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: check-added-large-files
       - id: check-ast
@@ -30,12 +30,12 @@ repos:
       - id: prettier
 
   - repo: https://github.com/psf/black
-    rev: 24.4.2
+    rev: 24.10.0
     hooks:
       - id: black
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
+    rev: 7.1.1
     hooks:
       - id: flake8
         args:
@@ -43,14 +43,14 @@ repos:
           - --extend-ignore=E203
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v1.12.1
     hooks:
       - id: mypy
         additional_dependencies:
           - types-PyYAML
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.2
+    rev: v3.18.0
     hooks:
       - id: pyupgrade
 
@@ -60,10 +60,10 @@ repos:
       - id: check-rebase
         args:
           - https://github.com/packit/packit-service.git
-        stages: [manual, push]
+        stages: [manual, pre-push]
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
         name: isort (python)
